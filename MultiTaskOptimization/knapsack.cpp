@@ -1,8 +1,28 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <numeric>
+#include <algorithm>
 
 using namespace std;
+
+
+template<typename T>
+vector<size_t> sort_indexes(const vector<T> &v) {
+
+    // initialize original index locations
+    vector<size_t> idx(v.size());
+    iota(idx.begin(), idx.end(), 0);
+
+    // sort indexes based on comparing values in v
+    // using std::stable_sort instead of std::sort
+    // to avoid unnecessary index re-orderings
+    // when v contains elements of equal values
+    stable_sort(idx.begin(), idx.end(),
+                [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
+
+    return idx;
+}
 
 class Knapsack {
 public:
@@ -16,6 +36,14 @@ public:
         this->capacity = int(capacity);
         weights = vector<int>(n_items, 0);
         profits = vector<int>(n_items, 0);
+    }
+
+    int greedy() {
+        vector<float> vow(n_items, 0);
+        for (int i = 0; i < n_items; ++i) {
+            vow[i] = float(profits[i]) / float(weights[i]);
+        }
+
     }
 
     int dp_solve() {
@@ -42,17 +70,17 @@ public:
         vector<int> matrix(max_value + 1, inf);
         matrix[0] = 0;
         for (int i = 0; i < n_items; ++i) {
-            for (int j = max_value; j >= profits[i]; --j){
+            for (int j = max_value; j >= profits[i]; --j) {
                 evaluations += 1;
                 matrix[j] = min(matrix[j - profits[i]] + weights[i], matrix[j]);
             }
         }
-        for (int i =0; i < max_value; ++i){
+        for (int i = 0; i < max_value; ++i) {
             if (matrix[i] < capacity) {
                 value = i;
             }
         }
-        cout << "best value "<< value << endl;
+        cout << "best value " << value << endl;
         return evaluations;
     }
 
