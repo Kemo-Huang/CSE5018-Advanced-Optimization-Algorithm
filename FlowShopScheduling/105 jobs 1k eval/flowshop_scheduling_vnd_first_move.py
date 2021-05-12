@@ -1,10 +1,12 @@
+import itertools
+import json
 from time import time
 
+import numba
 import numpy as np
+import tqdm
 from matplotlib import pyplot as plt
 from numba import jit
-import numba
-import tqdm
 
 
 @jit
@@ -88,6 +90,7 @@ def neh_heuristic(processing_time, solution):
         solution = best_solution
     return np.array(solution), min_makespan
 
+
 @jit
 def compute_makespan(solution, processing_time):
     makespans = np.zeros(len(solution), dtype=numba.int64)
@@ -111,7 +114,7 @@ def one_step_search(pool, neighbor_function, solution, processing_time, indices_
     return one_step_min_makespan, one_step_best_solution
 
 
-def variable_neighborhood_search(solution, makespan, processing_time, evaluations):
+def first_move(solution, makespan, processing_time, evaluations):
     curve = [makespan]
     k = 1
     for _ in range(evaluations - 1):
@@ -132,51 +135,87 @@ def variable_neighborhood_search(solution, makespan, processing_time, evaluation
     return solution, makespan, curve
 
 
+def first_move(solution, makespan, processing_time, indices, neighborhood):
+    evaluations = 0
+    for i1, i2 in indices:
+        evaluations += 1
+        new_solution, new_makespan = neighborhood((i1, i2, solution, processing_time))
+        if new_makespan < makespan:
+            makespan = new_makespan
+            solution = new_solution
+            break
+
+    return solution, makespan, evaluations
+
+
 def main():
     with open('data.txt', 'r') as f:
         processing_time = np.vstack(
             [np.array(line.split(), np.int) for line in f.readlines()])
-    solution = np.load('6030_result.npy')
-    start = time()
-    # initialization
-    # solution = rapid_access_procedure(processing_time)
-    solution, makespan = neh_heuristic(processing_time, solution)
-    init_time = time() - start
+    with open('6030.json', 'r') as f:
+        solutions = [np.array(solution, np.int) for solution in json.load(f)]
+
+    seed_avg_time = []
+    neh_solutions = []
+    neh_makespans = []
+    combinations = list(itertools.combinations(range(100), 2))
+    # permutations = list(itertools.permutations(range(100), 2))
+
+    for solution in tqdm.tqdm(solutions):
+        start = time()
+        # initialization
+        solution, makespan = neh_heuristic(processing_time, solution)
+        seed_avg_time.append(time() - start)
+        neh_solutions.append(solution)
+        neh_makespans.append(makespan)
+
+    print(sum(seed_avg_time)/len(seed_avg_time))
+    return
+
     makespans = []
     solutions = []
-    curves = []
+    # curves = []
 
-    runs = 1000
-    avg_time = 0
-
-    for seed in tqdm.tqdm(range(runs)):
-        np.random.seed(seed)
+    for i in tqdm.tqdm(range(len(neh_solutions))):
+        solution = neh_solutions[i]
+        makespan = neh_makespans[i]
         start = time()
-        best_solution, min_makespan, curve = variable_neighborhood_search(solution, makespan, processing_time, 1000)
-        avg_time += time() - start
+        best_solution, min_makespan, evaluations = first_move(solution, makespan, processing_time, 1000)
+        # while evaluations < 1000:
+        #     best_solution, min_makespan, one_step_evaluations = first_move(solution, makespan, processing_time, combinations, inversion)
+        #     evaluations += one_step_evaluations
+        #     if min_makespan == makespan:
+        #         break
+        #     solution = best_solution
+        #     makespan = min_makespan
+        seed_avg_time[i] += time() - start
+        # print(i, evaluations)
         solutions.append(best_solution)
         makespans.append(min_makespan)
-        curves.append(curve)
+        # curves.append(curve)
+    # print(makespans)
 
-    avg_time /= runs
-    avg_time += init_time
+    seed_avg_time = sum(seed_avg_time) / len(seed_avg_time)
+    print(seed_avg_time)
+    # avg_time /= runs
+    # avg_time += init_time
 
-    best_ind = np.argmin(makespans)
-    min_makespan = makespans[best_ind]
-    best_curve = curves[best_ind]
+    # best_ind = np.argmin(makespans)
+    # min_makespan = makespans[best_ind]
+    # best_curve = curves[best_ind]
 
-    print('avg time', avg_time)
-    print('avg makespan', sum(makespans) / runs)
-    print('min makespan', min_makespan)
+    # print('avg time', avg_time)
+    # print('avg makespan', sum(makespans) / runs)
+    # print('min makespan', min_makespan)
 
-    best_solution = solutions[best_ind]
-    np.save('result.npy', best_solution)
+    # best_solution = solutions[best_ind]
+    # np.save('result.npy', best_solution)
 
-    plt.figure()
-    plt.plot(best_curve)
-    plt.xlabel('evaluations')
-    plt.ylabel('makespan')
-    plt.show()
+    # plt.figure()
+    # plt.plot(best_curve)
+    # plt.xlabel('evaluations')
+    # plt.ylabel('makespan')
+    # plt.show()
 
 
 if __name__ == '__main__':
