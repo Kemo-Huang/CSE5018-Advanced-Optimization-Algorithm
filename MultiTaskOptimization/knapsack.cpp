@@ -7,12 +7,10 @@
 
 using namespace std;
 
-
 template<typename T>
-vector<size_t> sort_indexes(const vector<T> &v) {
-
+vector<int> sort_indexes(const vector<T> &v) {
     // initialize original index locations
-    vector<size_t> idx(v.size());
+    vector<int> idx(v.size());
     iota(idx.begin(), idx.end(), 0);
 
     // sort indexes based on comparing values in v
@@ -20,10 +18,16 @@ vector<size_t> sort_indexes(const vector<T> &v) {
     // to avoid unnecessary index re-orderings
     // when v contains elements of equal values
     stable_sort(idx.begin(), idx.end(),
-                [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
+                [&v](int i1, int i2) { return v[i1] > v[i2]; });
 
     return idx;
 }
+
+struct Solution {
+    vector<int> idx;
+    int weight = 0;
+    int value = 0;
+};
 
 class Knapsack {
 public:
@@ -39,12 +43,21 @@ public:
         profits = vector<int>(n_items, 0);
     }
 
-    int greedy() {
+    void greedy(Solution &solution) {
         vector<float> vow(n_items, 0);
         for (int i = 0; i < n_items; ++i) {
             vow[i] = float(profits[i]) / float(weights[i]);
         }
-
+        vector<int> idx = sort_indexes(vow);
+        int tmp;
+        for (auto &i: idx) {
+            tmp = weights[i] + solution.weight;
+            if (tmp <= capacity) {
+                solution.weight = tmp;
+                solution.value += profits[i];
+                solution.idx.push_back(i);
+            }
+        }
     }
 
     int dp_solve() {
@@ -121,8 +134,9 @@ int main() {
     for (Knapsack &knapsack : knapsacks) {
         int evaluations = knapsack.dp_solve();
         cout << "evaluations " << evaluations << endl;
-        evaluations = knapsack.dp_solve_value();
-        cout << "evaluations " << evaluations << endl;
+        Solution solution;
+        knapsack.greedy(solution);
+        cout << solution.value << endl;
     }
     return 0;
 }
